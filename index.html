@@ -71,7 +71,7 @@
         th { background: rgba(0, 242, 255, 0.1); color: var(--primary); font-family: 'Rajdhani', sans-serif; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; }
         td { font-size: 13px; color: #ddd; }
         
-        /* Device IDs in Table (New Style) */
+        /* Device IDs in Table */
         .table-dev-list { display: flex; flex-direction: column; gap: 4px; }
         .table-dev-chip { 
             background: rgba(255, 255, 255, 0.05); 
@@ -109,6 +109,8 @@
         .form-group label { display: block; color: var(--text-muted); font-size: 12px; margin-bottom: 5px; text-transform: uppercase; }
         .modal-input { width: 100%; padding: 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 5px; outline: none; font-family: 'Poppins', sans-serif; }
         .modal-input:focus { border-color: var(--primary); }
+        /* Style specifically for Date-Time input */
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
         
         .btn-save { width: 100%; padding: 12px; background: var(--primary); color: #000; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px; font-family: 'Rajdhani', sans-serif; text-transform: uppercase; }
         .btn-close { margin-top: 10px; width: 100%; background: transparent; color: #777; border: none; cursor: pointer; font-size: 12px; }
@@ -182,7 +184,7 @@
                     <tr>
                         <th>Email / User</th>
                         <th>Created Date</th>
-                        <th>Expiry Date</th>
+                        <th>Expiry Date & Time</th>
                         <th width="30%">Device IDs</th>
                         <th>Actions</th>
                     </tr>
@@ -203,8 +205,8 @@
                 <input type="text" id="editEmail" class="modal-input" readonly style="color: #777;">
             </div>
             <div class="form-group">
-                <label>Set Expiry Date</label>
-                <input type="date" id="editDate" class="modal-input">
+                <label>Set Expiry Date & Time</label>
+                <input type="datetime-local" id="editDate" class="modal-input">
             </div>
             <div class="form-group">
                 <label>Manage Devices (Add ID)</label>
@@ -231,8 +233,8 @@
                 <input type="text" id="newPass" class="modal-input" placeholder="Password123">
             </div>
             <div class="form-group">
-                <label>Expiry Date</label>
-                <input type="date" id="newDate" class="modal-input">
+                <label>Expiry Date & Time</label>
+                <input type="datetime-local" id="newDate" class="modal-input">
             </div>
             <button class="btn-save" id="btnCreate" onclick="createNewUser()" style="background: var(--success);">CREATE ACCOUNT</button>
             <button class="btn-close" onclick="closeModal('addUserModal')">CANCEL</button>
@@ -258,6 +260,7 @@
         const auth = primaryApp.auth();
         const db = primaryApp.firestore();
 
+        // Admin Email Lock (Same as before)
         const ALLOWED_ADMIN_EMAIL = "suwahassathsara2006@gmail.com";
 
         let allUsers = [];
@@ -268,11 +271,9 @@
             const pass = document.getElementById('adminPass').value.trim();
             const msg = document.getElementById('loginMsg');
 
-            if(!email || !pass) { 
-                msg.innerText = "Please enter credentials"; 
-                return; 
-            }
+            if(!email || !pass) { msg.innerText = "Please enter credentials"; return; }
 
+            // Security Check
             if(email !== ALLOWED_ADMIN_EMAIL) {
                 msg.innerText = "ACCESS DENIED: You are not the Admin!";
                 return;
@@ -313,24 +314,30 @@
             db.collection("users").orderBy("createdAt", "desc").onSnapshot((snapshot) => {
                 allUsers = [];
                 let activeCount = 0, expiredCount = 0;
-                let today = new Date().toISOString().split('T')[0];
+                let today = new Date();
 
                 snapshot.forEach((doc) => {
                     let data = doc.data();
                     let isExpired = false;
                     
-                    if (data.expiryDate && data.expiryDate < today) {
-                        isExpired = true; expiredCount++;
+                    // Check Expiry (Time aware)
+                    if (data.expiryDate) {
+                        let exp = new Date(data.expiryDate);
+                        if(exp < today) {
+                            isExpired = true; expiredCount++;
+                        } else {
+                            activeCount++;
+                        }
                     } else {
+                        // Lifetime
                         activeCount++;
                     }
 
-                    // Handles OLD (device_id) and NEW (allowed_devices) logic
                     let deviceList = [];
                     if (data.allowed_devices && Array.isArray(data.allowed_devices)) {
                         deviceList = data.allowed_devices;
                     } else if (data.device_id) {
-                        deviceList = [data.device_id]; // Show old devices too
+                        deviceList = [data.device_id]; 
                     }
                     
                     let createdStr = data.createdAt ? data.createdAt.split('T')[0] : "Unknown";
@@ -361,14 +368,21 @@
 
             users.forEach((user, index) => {
                 let badge = user.isExpired ? `<span class="badge badge-expired">EXPIRED</span>` : `<span class="badge badge-active">ACTIVE</span>`;
-                if(!user.expiryDate) badge = `<span class="badge badge-active" style="background:#0051ff20; color:#00f2ff;">LIFETIME</span>`;
+                let expiryDisplay = user.expiryDate;
+
+                if(!user.expiryDate) {
+                    badge = `<span class="badge badge-active" style="background:#0051ff20; color:#00f2ff;">LIFETIME</span>`;
+                    expiryDisplay = "Lifetime";
+                } else {
+                    // Format the date for display (Replace T with space)
+                    expiryDisplay = user.expiryDate.replace("T", " ");
+                }
 
                 let createdDisplay = user.createdAt;
                 if(user.createdAt === todayStr) {
                     createdDisplay += ` <span class="badge-new">NEW</span>`;
                 }
 
-                // --- SHOW ALL DEVICE IDs ---
                 let devicesHtml = "";
                 if(user.devices.length > 0) {
                     devicesHtml = '<div class="table-dev-list">';
@@ -384,7 +398,7 @@
                     <tr>
                         <td data-label="User">${user.email}</td>
                         <td data-label="Created">${createdDisplay}</td>
-                        <td data-label="Expiry">${user.expiryDate || "Lifetime"}</td>
+                        <td data-label="Expiry">${expiryDisplay}</td>
                         <td data-label="Device IDs">${devicesHtml}</td>
                         <td data-label="Actions">
                             <button class="btn-action btn-edit" onclick="openEdit(${index})"><i class="fa-solid fa-pen"></i> EDIT</button>
@@ -403,7 +417,17 @@
             let user = allUsers[index];
             document.getElementById('editUid').value = user.uid;
             document.getElementById('editEmail').value = user.email;
-            document.getElementById('editDate').value = user.expiryDate;
+            
+            // Format existing date for datetime-local input (needs YYYY-MM-DDTHH:MM)
+            // If user.expiryDate is stored as ISO string, it works nicely if we trim seconds/milliseconds
+            if(user.expiryDate) {
+                // Assuming stored format is ISO string or close to it
+                // We take the first 16 chars: "2023-12-31T15:30"
+                document.getElementById('editDate').value = user.expiryDate.substring(0, 16);
+            } else {
+                document.getElementById('editDate').value = "";
+            }
+            
             currentEditingDevices = [...user.devices]; 
             renderDeviceManager();
             document.getElementById('editModal').style.display = 'flex';
@@ -442,7 +466,8 @@
 
         function saveUserChanges() {
             let uid = document.getElementById('editUid').value;
-            let date = document.getElementById('editDate').value;
+            let date = document.getElementById('editDate').value; // Returns ISO-like string: 2023-10-27T15:30
+            
             db.collection("users").doc(uid).update({ 
                 expiryDate: date,
                 allowed_devices: currentEditingDevices 
@@ -462,11 +487,12 @@
         function createNewUser() {
             const email = document.getElementById('newEmail').value;
             const pass = document.getElementById('newPass').value;
-            const date = document.getElementById('newDate').value;
+            const date = document.getElementById('newDate').value; // Returns ISO-like string
             const btn = document.getElementById('btnCreate');
 
             if(!email || !pass || !date) { alert("Please fill all fields!"); return; }
             btn.innerText = "CREATING...";
+            
             const secondaryApp = firebase.initializeApp(firebaseConfig, "Secondary");
             secondaryApp.auth().createUserWithEmailAndPassword(email, pass)
                 .then((cred) => {
