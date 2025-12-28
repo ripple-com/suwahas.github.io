@@ -588,8 +588,8 @@
             
             document.getElementById("showDeviceId").innerText = currentId;
             
-            let msg = Hello Admin, Please approve my Device.\n\n📧 Email: ${userEmail}\n📱 Device ID: ${currentId};
-            document.getElementById("waLink").href = https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(msg)};
+            let msg = `Hello Admin, Please approve my Device.\n\n📧 Email: ${userEmail}\n📱 Device ID: ${currentId}`;
+            document.getElementById("waLink").href = `https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(msg)}`;
         }
 
         function acceptNotice() {
@@ -651,7 +651,7 @@
             const btn = document.getElementById("loginBtn");
 
             if(!email || !password) {
-                errorMsg.style.display = "block"; errorMsg.innerText = "⚠ ENTER CREDENTIALS"; return;
+                errorMsg.style.display = "block"; errorMsg.innerText = "⚠️ ENTER CREDENTIALS"; return;
             }
 
             btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> CHECKING DB...';
@@ -748,7 +748,7 @@
             var signal = document.getElementById("displaySignal").innerText;
             var start = document.getElementById("zoneStart").innerText;
             var end = document.getElementById("zoneEnd").innerText;
-            var textToCopy = 🚨 *AVIATOR SIGNAL PRO* 🚨\n\n🎯 Next Odd Time: ${signal}\n🕒 Zone: ${start} To ${end}\n\n🔥 *විනාඩි හතර තුළ Bet කරන්න*;
+            var textToCopy = `🚨 *AVIATOR SIGNAL PRO* 🚨\n\n🎯 Next Odd Time: ${signal}\n🕒 Zone: ${start} To ${end}\n\n🔥 *විනාඩි හතර තුළ Bet කරන්න*`;
             var textArea = document.createElement("textarea");
             textArea.value = textToCopy;
             textArea.style.position = "fixed";
